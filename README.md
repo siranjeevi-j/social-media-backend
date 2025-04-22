@@ -22,5 +22,20 @@ Authenticate using jwt token from the package jsonwebtoken
       const { _id } = decodedObj;
 
       const user = await User.findById(_id);
+add validations for schema
+    dob: {
+      type: Date,
+      required: true,
+      validate: {
+        validator: function (value) {
+            ...}
+        }
+    }
+add schema methods: schema.methods.method_name = function() {}
+
+create separate file for each routes
+add index. connectionRequestSchema.index({ from: 1, to: 1 });
+
+add pre function in schema: schema.pre("save", function (next) {});
 
 

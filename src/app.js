@@ -13,77 +13,66 @@ app.listen(4000, () => {
 */
 
 const express = require("express");
-const connectDB = require("./utils/connectDB");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 
+const connectDB = require("./utils/connectDB");
+const authRoutes = require("./routes/auth");
+const ConnectionRequest = require("./models/connectionRequests");
 const User = require("./models/users");
+const validateAuthentication = require("./utils/validateAuthentication");
 
 const app = express();
+
 app.use(cookieParser());
+
 app.use("/", express.json());
+app.use("/", authRoutes);
 
-app.post("/sign-up", async (req, res) => {
-  try {
-    const details = req.body;
+app.get(
+  "/connections/request/:status/:to",
+  validateAuthentication,
+  async (req, res) => {
+    try {
+      const { status, to } = req.params;
+      const user = req.user;
 
-    const password = await bcrypt.hash(details.password.toString(), 10);
+      if (status === "interested") {
+        const toUser = await User.findById(to);
 
-    const user = await User.create({
-      ...details,
-      password,
-    });
+        if (!user || !toUser) {
+          throw new Error("User not exist");
+        }
 
-    await user.save();
-
-    const jwtToken = await jwt.sign({ _id: userRecord._id }, "secret-key", {
-      expiresIn: "7d",
-    });
-
-    res.cookie("token", jwtToken, {
-      expiresIn: new Date(Date.now() + 8 * 3600000),
-    });
-
-    res.status(200).send({ message: "User signup successfully" });
-  } catch (err) {
-    console.error(err);
-
-    res.status(400).send({ message: "User was not created" });
-  }
-});
-app.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const userRecord = await User.findOne({ email });
-
-    if (userRecord) {
-      const isPasswordMatch = await bcrypt.compare(
-        password,
-        userRecord.password
-      );
-
-      if (isPasswordMatch) {
-        const jwtToken = jwt.sign({ _id: userRecord._id }, "secret-key", {
-          expiresIn: "7d",
+        const isConnectionExists = await ConnectionRequest.find({
+          $or: [
+            { from: user._id, to },
+            { from: to, to: user._id },
+          ],
         });
 
-        res.cookie("token", jwtToken, {
-          expiresIn: new Date(Date.now() + 8 * 3600000),
+        if (isConnectionExists.length > 0) {
+          throw new Error("Connection already exists");
+        }
+
+        const newRequest = new ConnectionRequest({
+          from: user._id.toString(),
+          to: to.toString(),
+          status,
         });
 
-        return res.status(200).send({ message: "Logged in successfully" });
+        await newRequest.save();
+
+        res
+          .status(200)
+          .send({ message: "Connection request send successfully" });
       }
+    } catch (error) {
+      console.error(error);
+
+      res.status(400).send({ message: "Failed" });
     }
-
-    res.status(400).send({ message: "Invalid Credentials" });
-  } catch (err) {
-    console.error(err);
-
-    res.status(400).send({ message: "Invalid Credentials" });
   }
-});
+);
 
 app.use("/", (req, res) => res.send("hi express"));
 

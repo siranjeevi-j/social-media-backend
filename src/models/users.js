@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
 
 const genderEnum = {
   MALE: "male",
@@ -53,6 +54,16 @@ const userSchema = mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.methods.getJWT = async function () {
+  const user = this;
+
+  const jwtToken = await jwt.sign({ _id: user._id }, "secret-key", {
+    expiresIn: "7d",
+  });
+
+  return jwtToken;
+};
 
 const userModel = mongoose.model("User", userSchema);
 
